@@ -88,8 +88,8 @@ void Mosse::Initialize(Mat &frame, Rect rect)
   //Get the center position
   int x1=floor((2*rect.x+rect.width-w)/2);
   int y1=floor((2*rect.y+rect.height-h)/2);
-  center.x=x1+(w-1)/2;
-  center.y=y1+(h-1)/2;
+  center.x=x1+(w-1)/2;//
+  center.y=y1+(h-1)/2;//
   size.width=w;
   size.height=h;
   
@@ -132,6 +132,7 @@ void Mosse::UpdateFilter(void)
 {
   H=divDFTs(A,B);
   // H*=-1;
+  // cout<<"********"<<H<<"********"<<endl;
 }
 
 Mat Mosse::divDFTs(CvMat src1, CvMat src2)
@@ -236,7 +237,7 @@ double Mosse::Correlate(Mat image_sub,Point &delta_xy)
   // delta_xy=Point(maxLoc.x-width/2,maxLoc.y-height/2);
   delta_xy.x=maxLoc.x-width/2;
   delta_xy.x=maxLoc.y-height/2;
-  cout<<"delta_x= "<<delta_xy.x<<", "<<"delta_y= "<<delta_xy.x<<endl;
+  // cout<<"delta_x= "<<delta_xy.x<<", "<<"delta_y= "<<delta_xy.x<<endl;
   
   //compute PSR
   double PSR;

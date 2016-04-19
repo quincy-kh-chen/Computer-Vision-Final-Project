@@ -23,6 +23,8 @@ Point point1, point2; // vertical points of the bounding box
 int drag = 0;
 Rect rect; // bounding box
 int select_flag = 0;
+//for draing selecting box
+int draw_flag=0;
 
 //Matrix to store each frame of the webcam feed
 Mat CameraFeed;
@@ -57,22 +59,17 @@ void mouseHandler(int event, int x, int y, int flags, void *param)
         /* left button clicked. ROI selection begins */
         point1 = Point(x, y);
         drag = 1;
+        draw_flag=1;
         cout<<"mouse down"<<endl;
     }
     if (event == CV_EVENT_MOUSEMOVE && drag)
     {
-        /* mouse dragged. ROI being selected */
-//        Mat img1 = CameraFeed.clone();
-//        point2 = Point(x, y);
-//        rectangle(img1, point1, point2, CV_RGB(255, 0, 0), 3, 8, 0);
-//        imshow("Orginal pic", img1);
         point2 = Point(x, y);
-        rectangle(CameraFeed, point1, point2, CV_RGB(255, 0, 0), 3, 8, 0);
     }
     if (event == CV_EVENT_LBUTTONUP && drag)
     {
         point2 = Point(x, y);
-        rect = Rect(point1.x, point1.y, x - point1.x, y - point1.y);
+        rect = Rect(point1.x+2, point1.y+2, x - point1.x-4, y - point1.y-4);//should not include the red bo lines
         drag = 0;
         Mat img2;
         CameraFeed.copyTo(img2);
@@ -80,12 +77,13 @@ void mouseHandler(int event, int x, int y, int flags, void *param)
     }
     if (event == CV_EVENT_LBUTTONUP)
     {
-        /* ROI selected */
         select_flag = 1;
         drag = 0;
-//        imshow("Template", box);
+        draw_flag=0;
     }
 }
+
+
 int main(int argc, char* argv[])
 {
     rect.width=0; rect.height=0;
@@ -110,21 +108,19 @@ int main(int argc, char* argv[])
     
     //store image to matrix //cameraFeed is a matrix
     capture.read(CameraFeed);
-//    capture >> CameraFeed;
     //show frames
     imshow("Orginal pic",CameraFeed);//original pic
-//    setMouseCallback("Orginal pic", mouseHandler, NULL);
- 
+    setMouseCallback("Orginal pic", mouseHandler, NULL);
  
     while(!select_flag)
     {
         capture.read(CameraFeed);
-        imshow("Orginal pic",CameraFeed);//original pic
-        if (!select_flag)
+        if(draw_flag==1)
         {
-          setMouseCallback("Orginal pic", mouseHandler, NULL);
+            rectangle(CameraFeed, point1, point2, CV_RGB(255, 0, 0), 2, 8, 0);
         }
         //delay 20ms so that screen can refresh.
+        imshow("Orginal pic",CameraFeed);//original pic
         //image will not appear without this waitKey() command
         if(waitKey(20)==27)
         {
@@ -136,7 +132,7 @@ int main(int argc, char* argv[])
     tracker.Initialize(frame, rect);
     cout<<"w= "<<tracker.w<<", "<<"h= "<<tracker.h<<endl;
     cout<<"Initial x= "<<tracker.center.x<<", "<<"Initial y= "<<tracker.center.y<<endl;
-
+    
     cout<<"start tracking"<<endl;
     while(select_flag)
     {
@@ -150,10 +146,6 @@ int main(int argc, char* argv[])
         tracker.Run(frame);
         tracker.Draw(CameraFeed);
 //        cout<<"x= "<<tracker.center.x<<", "<<"y= "<<tracker.center.y<<endl;
-        
-        
-        
-        
         
         if(waitKey(10)==27)
         {
