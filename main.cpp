@@ -6,17 +6,6 @@
  email kunhsinc@andrew.cmu.edu
  @version 1 4/10/16
 */
-#include <iostream>
-#include <math.h>
-#include <opencv2/opencv.hpp>
-#include <opencv/highgui.h>
-#include <opencv/cv.h>
-#include <stdio.h>
-
-
-
-using namespace cv;
-using namespace std;
 
 #include <sstream>
 #include <string>
