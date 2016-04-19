@@ -59,17 +59,18 @@ void mouseHandler(int event, int x, int y, int flags, void *param)
         /* left button clicked. ROI selection begins */
         point1 = Point(x, y);
         drag = 1;
-        draw_flag=1;
         cout<<"mouse down"<<endl;
     }
     if (event == CV_EVENT_MOUSEMOVE && drag)
     {
+        draw_flag=1;
         point2 = Point(x, y);
     }
     if (event == CV_EVENT_LBUTTONUP && drag)
     {
         point2 = Point(x, y);
-        rect = Rect(point1.x+2, point1.y+2, x - point1.x-4, y - point1.y-4);//should not include the red bo lines
+        rect = Rect(point1.x, point1.y, x - point1.x, y - point1.y);//should not include the red bo lines
+        // rect = Rect(point1.x+2, point1.y+2, x - point1.x-4, y - point1.y-4);//should not include the red bo lines
         drag = 0;
         Mat img2;
         CameraFeed.copyTo(img2);
@@ -112,22 +113,25 @@ int main(int argc, char* argv[])
     imshow("Orginal pic",CameraFeed);//original pic
     setMouseCallback("Orginal pic", mouseHandler, NULL);
  
+    Mat showbox;
     while(!select_flag)
     {
         capture.read(CameraFeed);
+        CameraFeed.copyTo(showbox);
         if(draw_flag==1)
         {
-            rectangle(CameraFeed, point1, point2, CV_RGB(255, 0, 0), 2, 8, 0);
+            rectangle(showbox, point1, point2, CV_RGB(255, 0, 0), 2, 8, 0);
         }
         //delay 20ms so that screen can refresh.
-        imshow("Orginal pic",CameraFeed);//original pic
+        imshow("Orginal pic",showbox);//original pic
         //image will not appear without this waitKey() command
-        if(waitKey(20)==27)
+        if(waitKey(10)==27)
         {
             break;
         }
     }
     
+    imshow("Template", box);
     cvtColor(CameraFeed,frame,CV_RGB2GRAY);
     tracker.Initialize(frame, rect);
     cout<<"w= "<<tracker.w<<", "<<"h= "<<tracker.h<<endl;
@@ -135,12 +139,7 @@ int main(int argc, char* argv[])
     
     cout<<"start tracking"<<endl;
     while(select_flag)
-    {
-        if (select_flag)
-        {
-            imshow("Template", box);
-        }
-        
+    {   
         capture.read(CameraFeed);
         cvtColor(CameraFeed,frame,CV_RGB2GRAY);
         tracker.Run(frame);

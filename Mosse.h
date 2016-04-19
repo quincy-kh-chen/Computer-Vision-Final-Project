@@ -96,17 +96,19 @@ void Mosse::Initialize(Mat &frame, Rect rect)
   //Initialize FFT
   Mat window;
   getRectSubPix(frame, size, center, window); //window is the output array
-  
+
   //create Hanning window
   createHanningWindow(HanWin, size, CV_32F);
+  // imshow("HanWin",HanWin);
 
   //define G
   DefineGoal();
-
+  
   //compute A,B and H
   //affine image
-  A=B=Mat::zeros(G.size(), G.type()); // A.size()=B.size()=G.size()
-  for(int i=0;i<8;i++)
+  A=Mat::zeros(G.size(), G.type()); // A.size()=B.size()=G.size()
+  B=Mat::zeros(G.size(), G.type()); // A.size()=B.size()=G.size()
+  for(int i=0;i<128;i++)
   {
     Mat window_warp=randWarp(window);
     PreProcess(window_warp);
@@ -117,14 +119,15 @@ void Mosse::Initialize(Mat &frame, Rect rect)
     dft(window_warp,WINDOW_WARP,DFT_COMPLEX_OUTPUT);
     mulSpectrums(G          , WINDOW_WARP, A_i, 0, true );
     mulSpectrums(WINDOW_WARP, WINDOW_WARP, B_i, 0, true );
-//    A+=A_i;
-//    B+=B_i;
-    add(A,A_i,A);
-    add(B,B_i,B);
+    A+=A_i;
+    B+=B_i;
+    // add(A,A_i,A);
+    // add(B,B_i,B);
   }
 
   //update filter
   UpdateFilter();
+  Run(frame);
   std::cout<<"Initialization completed"<<std::endl;
 }
 
@@ -185,41 +188,51 @@ Mat Mosse::divDFTs(CvMat src1, CvMat src2)
 void Mosse::DefineGoal(void)
 {
   Mat g=Mat::zeros(size,CV_32F);
-  g.at<double>(int(w/2),int(h/2))=1;
-  GaussianBlur(g, g, Size(-1,-1), 2.0);
-  // g/=g.max();
+  g.at<float>(h/2,w/2)=1;
+  cout<<"h= "<<h<<"w= "<<w<<endl;
+  GaussianBlur(g,g, Size(-1,-1), 2.0);
+  double minVal; double maxVal;
+  minMaxLoc( g, &minVal, &maxVal);
+  g=g/maxVal;
+  imshow("g",g);
   dft(g,G,DFT_COMPLEX_OUTPUT);
 }
 void Mosse::PreProcess(Mat &window)
 {
     //log(pixel)
-	Mat window32;
-	window.convertTo(window32,CV_32FC1);
-  Mat Dia=Mat::ones(window32.size(),CV_32FC1);
-  log(window32+Dia,window);
+	// Mat window32;
+	// window.convertTo(window32,CV_32FC1);
+ //  Mat Dia=Mat::ones(window32.size(),CV_32FC1);
+ //  log(window32+Dia,window);
 
-	//normalize
+  window.convertTo(window,CV_32F);
+  Mat Dia=Mat::ones(window.size(),window.type());
+  log(window+Dia,window);
+	
+  //normalize
 	Mat mean,StdDev;
   meanStdDev(window,mean,StdDev);
-  window=(window-mean.at<double>(0)*Dia)/StdDev.at<double>(0);
+  // window=(window-mean.at<double>(0)*Dia)/StdDev.at<double>(0);
+  window=(window-mean)/(StdDev+eps);
   
   //Gaussain weighting
   window=window.mul(HanWin);
+  // imshow("PreProcesswindow",window);
 }
 
 double Mosse::Correlate(Mat image_sub,Point &delta_xy)
 {
-  auto IMAGE_sub=image_sub;
-  auto RESPONSE=image_sub;
-  auto response=image_sub;
+  Mat IMAGE_SUB;
+  Mat RESPONSE;
+  Mat response;
   // imshow("img_sub",image_sub);
 
   //FFT
-  dft(image_sub,IMAGE_sub,DFT_COMPLEX_OUTPUT);
+  dft(image_sub,IMAGE_SUB,DFT_COMPLEX_OUTPUT);
 
   //Performs the per-element multiplication of two Fourier spectrums
   //************************ This is where F*H  ************************
-  mulSpectrums(IMAGE_sub, H, RESPONSE, 0, true );
+  mulSpectrums(IMAGE_SUB, H, RESPONSE, 0, true );
 
   //inverse FFT
 //  idft(RESPONSE, response, DFT_SCALE||DFT_REAL_OUTPUT);
@@ -236,8 +249,8 @@ double Mosse::Correlate(Mat image_sub,Point &delta_xy)
   //compute x and y
   // delta_xy=Point(maxLoc.x-width/2,maxLoc.y-height/2);
   delta_xy.x=maxLoc.x-width/2;
-  delta_xy.x=maxLoc.y-height/2;
-  // cout<<"delta_x= "<<delta_xy.x<<", "<<"delta_y= "<<delta_xy.x<<endl;
+  delta_xy.y=maxLoc.y-height/2;
+  // cout<<"delta_x= "<<delta_xy.x<<", "<<"delta_y= "<<delta_xy.y<<endl;
   
   //compute PSR
   double PSR;
@@ -246,6 +259,7 @@ double Mosse::Correlate(Mat image_sub,Point &delta_xy)
   auto mean=Mean.at<double>(0);
   auto std=Std.at<double>(0);
   PSR=(maxVal-mean)/(std+eps);
+  // cout<<"PSR= "<<PSR<<endl;
   return PSR;
 }
 float Mosse::randNum(void)
@@ -283,9 +297,6 @@ Mat Mosse::randWarp(const Mat& a)
 }
 void Mosse::Run(const Mat &frame)
 {
-  double x=center.x;
-  double y=center.y;
-
   //get image_sub
   Mat image_sub;
   getRectSubPix(frame, size, center, image_sub); //image_sub is the output array
@@ -304,22 +315,24 @@ void Mosse::Run(const Mat &frame)
   //update location
   center.x+=delta_xy.x;
   center.y+=delta_xy.y;
+  cout<<"delta_x= "<<delta_xy.x<<", "<<"delta_y= "<<delta_xy.y<<endl;
 
 
 //update filter H_i
   //get image_sub
-  getRectSubPix(frame, size, center, image_sub); //image_sub is the output array
+  Mat img_sub_new;
+  getRectSubPix(frame, size, center, img_sub_new);
   
   //preprocess
-  PreProcess(image_sub);
+  PreProcess(img_sub_new);
 
   //update filter
-  Mat IMAGE_sub;
+  Mat F;
   Mat A_new;
   Mat B_new;
-  dft(image_sub,IMAGE_sub,DFT_COMPLEX_OUTPUT);
-  mulSpectrums(G        , IMAGE_sub, A_new, 0, true );
-  mulSpectrums(IMAGE_sub, IMAGE_sub, B_new, 0, true );
+  dft(img_sub_new,F,DFT_COMPLEX_OUTPUT);
+  mulSpectrums(G, F, A_new, 0, true );
+  mulSpectrums(F, F, B_new, 0, true );
   A=A*(1-rate)+A_new*rate;
   B=B*(1-rate)+B_new*rate;
   UpdateFilter();
