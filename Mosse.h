@@ -131,7 +131,7 @@ void Mosse::Initialize(Mat &frame, Rect rect)
 void Mosse::UpdateFilter(void)
 {
   H=divDFTs(A,B);
-  H*=-1;
+  // H*=-1;
 }
 
 Mat Mosse::divDFTs(CvMat src1, CvMat src2)
@@ -172,7 +172,7 @@ Mat Mosse::divDFTs(CvMat src1, CvMat src2)
   cvMul(x1_imageIm, x1_imageIm, square1); 
   cvMul(x2_imageIm, x2_imageIm, square2); 
   cvAdd(square1, square2, denominator2); 
-  cvDiv(numerator2, denominator2, x1_imageIm, 1.0 ); 
+  cvDiv(numerator2, denominator2, x1_imageIm, -1.0 ); 
 
   //re und im zusammenfügen 
   CvMat *dst1 = cvCreateMat(src1.height, src1.width, CV_32FC2);
