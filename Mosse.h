@@ -21,17 +21,20 @@ using namespace std;
 class Mosse 
 {
 public:
-  double eps=0.0001;
+  double eps=0.00001;
   double rate=0.125; //learning rate
+  double psrThre=6.0;
+  const double InRangeParameter=0.1;
+  int MaxIteration=3;
   Point_<double> center; //center of the bounding box
   Size size; //size of the bounding box
   Mat previousWin;
   Mat previousRes;
   Mat HanWin;
-
+  
   //Optimal size for DFT processing  
-  int h;
-  int w;
+  int h=0;
+  int w=0;
 
   //Desired output
   Mat G;
@@ -45,18 +48,21 @@ public:
   ~Mosse();
   void CleanUp(void); 
   //visualizatiom
-  void Draw(Mat &frame);
+  void Draw(Mat &frame,bool flag);
   
   //computing
-  void Initialize(Mat &frame, Rect rect);
+  void Initialize(const Mat &frame, const Rect &rect);
   void DefineGoal(void); 
   void PreProcess(Mat &window); 
-  double Correlate(Mat iamge,Point &delta_xy);
+  double Correlate(const Mat &image_sub, Point &delta_xy);
   void UpdateFilter(void);
   Mat randWarp(const Mat &a);
   float randNum(void);
-  Mat divDFTs(CvMat src1, CvMat src2);
-  void Run(const Mat &frame);
+  Mat divDFTs(const CvMat &src1, const CvMat &src2);
+  // Mat divDFTs(Mat& first, Mat& second);
+  Mat addComplexPlane(Mat real);
+  bool InRange(const Point &delta_xy);  
+  bool Run(const Mat &frame);
   
 
 };
@@ -66,7 +72,7 @@ Mosse::Mosse(void)
 Mosse::~Mosse(void)
 {
 }
-void Mosse::Draw(Mat &frame)
+void Mosse::Draw(Mat &frame,bool flag)
 {
   double x=center.x;
   double y=center.y;
@@ -74,11 +80,20 @@ void Mosse::Draw(Mat &frame)
   double y1=int(y-0.5*h); 
   double x2=int(x+0.5*w); 
   double y2=int(y+0.5*h);
-  rectangle(frame,Point(x1,y1),Point(x2,y2), CV_RGB(0, 255, 0), 3, 8, 0);
-  circle(frame, center, 2,CV_RGB(0, 255, 0),-1);
-  imshow("Tracking",frame);
+  Scalar color;
+  if(flag==1)
+  {
+    color=CV_RGB(0,255,0);
+  }
+  else if(flag==0)
+  {
+    color=CV_RGB(255,0,0);
+  }    
+  rectangle(frame,Point(x1,y1),Point(x2,y2), color, 3, 8, 0);
+  circle(frame, center, 2,color,-1);
+  // imshow("Tracking",frame);
 }
-void Mosse::Initialize(Mat &frame, Rect rect)
+void Mosse::Initialize(const Mat &frame, const Rect &rect)
 {
   // CleanUp();
   //Get the optimal size for DFT processing
@@ -88,8 +103,10 @@ void Mosse::Initialize(Mat &frame, Rect rect)
   //Get the center position
   int x1=floor((2*rect.x+rect.width-w)/2);
   int y1=floor((2*rect.y+rect.height-h)/2);
-  center.x=x1+(w-1)/2;//
-  center.y=y1+(h-1)/2;//
+  // center.x=x1+(w-1)/2;//
+  // center.y=y1+(h-1)/2;//
+  center.x=x1+(w)/2;//
+  center.y=y1+(h)/2;//
   size.width=w;
   size.height=h;
   
@@ -108,7 +125,7 @@ void Mosse::Initialize(Mat &frame, Rect rect)
   //affine image
   A=Mat::zeros(G.size(), G.type()); // A.size()=B.size()=G.size()
   B=Mat::zeros(G.size(), G.type()); // A.size()=B.size()=G.size()
-  for(int i=0;i<128;i++)
+  for(int i=0;i<8;i++)
   {
     Mat window_warp=randWarp(window);
     PreProcess(window_warp);
@@ -121,13 +138,13 @@ void Mosse::Initialize(Mat &frame, Rect rect)
     mulSpectrums(WINDOW_WARP, WINDOW_WARP, B_i, 0, true );
     A+=A_i;
     B+=B_i;
-    // add(A,A_i,A);
-    // add(B,B_i,B);
   }
+
 
   //update filter
   UpdateFilter();
   Run(frame);
+  // imshow("Template",window);
   std::cout<<"Initialization completed"<<std::endl;
 }
 
@@ -138,79 +155,73 @@ void Mosse::UpdateFilter(void)
   // cout<<"********"<<H<<"********"<<endl;
 }
 
-Mat Mosse::divDFTs(CvMat src1, CvMat src2)
+Mat Mosse::divDFTs(const CvMat &src1, const CvMat &src2)
 { 
-  /* Komponentenweise division der Werte in src1 und src2 
+  /*
+    Element-wise division of complex numbers in src1 and src2
   */ 
-  CvMat* x1_imageRe = cvCreateMat(size.height, size.width, CV_32FC1); 
-  CvMat* x1_imageIm = cvCreateMat(size.height, size.width, CV_32FC1); 
-  CvMat* x2_imageRe = cvCreateMat(size.height, size.width, CV_32FC1); 
-  CvMat* x2_imageIm = cvCreateMat(size.height, size.width, CV_32FC1); 
+  
+  CvMat* src1_Re = cvCreateMat(size.height, size.width, CV_32FC1);
+  CvMat* src1_Im = cvCreateMat(size.height, size.width, CV_32FC1);
+  CvMat* src2_Re = cvCreateMat(size.height, size.width, CV_32FC1);
+  CvMat* src2_Im = cvCreateMat(size.height, size.width, CV_32FC1);
   //CvMat* imageImRot = cvCreateMat(this->source_depth_dft->height,this->source_depth_dft->width, CV_32FC1); 
-  cvSplit(&src1, x1_imageRe, x1_imageIm, 0, 0 ); 
-  cvSplit(&src2, x2_imageRe, x2_imageIm, 0, 0 );
+  cvSplit(&src1, src1_Re, src1_Im, 0, 0 ); 
+  cvSplit(&src2, src2_Re, src2_Im, 0, 0 );
 
   // Divide real and imaginary components 
-  CvMat* denominator1 = cvCreateMat(size.height, size.width, CV_32FC1); //nenner 
+  CvMat* denominator1 = cvCreateMat(size.height, size.width, CV_32FC1);
   CvMat* denominator2 = cvCreateMat(size.height, size.width, CV_32FC1); 
-  CvMat* numerator1 = cvCreateMat(size.height, size.width, CV_32FC1); //zähler
+  CvMat* numerator1 = cvCreateMat(size.height, size.width, CV_32FC1);
   CvMat* numerator2 = cvCreateMat(size.height, size.width, CV_32FC1); 
   CvMat* addend1 = cvCreateMat(size.height, size.width, CV_32FC1); 
   CvMat* addend2 = cvCreateMat(size.height, size.width, CV_32FC1); 
   CvMat* square1 = cvCreateMat(size.height, size.width, CV_32FC1); 
   CvMat* square2 = cvCreateMat(size.height, size.width, CV_32FC1); 
 
-  //(a*c + b*d)/(c*c + d*d) = re 
-  cvMul(x1_imageRe, x2_imageRe, addend1); 
-  cvMul(x1_imageIm, x2_imageIm, addend2); 
+ // (Re1*Re2 + Im1*Im1)/(Re2*Re2 + Im2*Im2) = Re
+  cvMul(src1_Re, src2_Re, addend1); 
+  cvMul(src1_Im, src2_Im, addend2); 
   cvAdd(addend1, addend2, numerator1); 
-  cvMul(x1_imageIm, x1_imageIm, square1); 
-  cvMul(x2_imageIm, x2_imageIm, square2); 
+  cvMul(src2_Re, src2_Re, square1);
+  cvMul(src2_Im, src2_Im, square2); 
   cvAdd(square1, square2, denominator1);
-  cvDiv(numerator1, denominator1, x1_imageRe, 1.0 ); 
+  cvDiv(numerator1, denominator1, src1_Re, 1.0 ); 
 
-  //(b*c - a*d)/(c*c + d*d) = im 
-  cvMul(x1_imageIm, x2_imageRe, addend1); 
-  cvMul(x1_imageRe, x2_imageIm, addend2); 
+  // (Im1*Re2 - Re1*Im2)/(Re2*Re2 + Im2*Im2) = Im
+  cvMul(src1_Im, src2_Re, addend1); 
+  cvMul(src1_Re, src2_Im, addend2); 
   cvSub(addend1, addend2, numerator2); 
-  cvMul(x1_imageIm, x1_imageIm, square1); 
-  cvMul(x2_imageIm, x2_imageIm, square2); 
+  cvMul(src2_Re, src2_Re, square1);
+  cvMul(src2_Im, src2_Im, square2); 
   cvAdd(square1, square2, denominator2); 
-  cvDiv(numerator2, denominator2, x1_imageIm, -1.0 ); 
+  cvDiv(numerator2, denominator2, src1_Im, -1.0 ); // Complex conjugate
 
-  //re und im zusammenfügen 
-  CvMat *dst1 = cvCreateMat(src1.height, src1.width, CV_32FC2);
-  cvMerge( x1_imageRe, x1_imageIm, NULL, NULL, dst1 );
-  Mat dst=cvarrToMat(dst1);
+  // Merge Re and Im back into a complex matrix
+  CvMat* dst1 = cvCreateMat(src1.height, src1.width, CV_32FC2);
+  cvMerge( src1_Re, src1_Im, NULL, NULL, dst1 );
+  Mat dst = cvarrToMat(dst1);
   return dst;
 } 
-
 void Mosse::DefineGoal(void)
 {
   Mat g=Mat::zeros(size,CV_32F);
   g.at<float>(h/2,w/2)=1;
-  cout<<"h= "<<h<<"w= "<<w<<endl;
   GaussianBlur(g,g, Size(-1,-1), 2.0);
   double minVal; double maxVal;
   minMaxLoc( g, &minVal, &maxVal);
   g=g/maxVal;
-  imshow("g",g);
+  // imshow("g",g);
   dft(g,G,DFT_COMPLEX_OUTPUT);
 }
 void Mosse::PreProcess(Mat &window)
 {
-    //log(pixel)
-	// Mat window32;
-	// window.convertTo(window32,CV_32FC1);
- //  Mat Dia=Mat::ones(window32.size(),CV_32FC1);
- //  log(window32+Dia,window);
-
-  window.convertTo(window,CV_32F);
+  window.convertTo(window,CV_32FC1);
   Mat Dia=Mat::ones(window.size(),window.type());
   log(window+Dia,window);
 	
   //normalize
-	Mat mean,StdDev;
+  Mat mean,StdDev;
   meanStdDev(window,mean,StdDev);
   // window=(window-mean.at<double>(0)*Dia)/StdDev.at<double>(0);
   window=(window-mean)/(StdDev+eps);
@@ -220,7 +231,7 @@ void Mosse::PreProcess(Mat &window)
   // imshow("PreProcesswindow",window);
 }
 
-double Mosse::Correlate(Mat image_sub,Point &delta_xy)
+double Mosse::Correlate(const Mat &image_sub,Point &delta_xy)
 {
   Mat IMAGE_SUB;
   Mat RESPONSE;
@@ -235,11 +246,7 @@ double Mosse::Correlate(Mat image_sub,Point &delta_xy)
   mulSpectrums(IMAGE_SUB, H, RESPONSE, 0, true );
 
   //inverse FFT
-//  idft(RESPONSE, response, DFT_SCALE||DFT_REAL_OUTPUT);
   idft(RESPONSE, response, DFT_SCALE|DFT_REAL_OUTPUT);
-  Size s = response.size();
-  int height = s.height;
-  int width = s.width;
 
   //find max/min
   double minVal, maxVal;
@@ -248,8 +255,12 @@ double Mosse::Correlate(Mat image_sub,Point &delta_xy)
 
   //compute x and y
   // delta_xy=Point(maxLoc.x-width/2,maxLoc.y-height/2);
-  delta_xy.x=maxLoc.x-width/2;
-  delta_xy.y=maxLoc.y-height/2;
+  //  cout<<"maxLoc.x= "<<maxLoc.x<<" maxLoc.y= "<<maxLoc.y<<endl;
+  delta_xy.x=maxLoc.x-int(response.size().width/2);
+  delta_xy.y=maxLoc.y-int(response.size().height/2);
+  // delta_xy.x=maxLoc.x;
+  // delta_xy.y=maxLoc.y;
+
   // cout<<"delta_x= "<<delta_xy.x<<", "<<"delta_y= "<<delta_xy.y<<endl;
   
   //compute PSR
@@ -295,28 +306,57 @@ Mat Mosse::randWarp(const Mat& a)
   //cout<<warped<<endl;
   return warped;
 }
-void Mosse::Run(const Mat &frame)
+bool Mosse::InRange(const Point &delta_xy)
 {
-  //get image_sub
-  Mat image_sub;
-  getRectSubPix(frame, size, center, image_sub); //image_sub is the output array
-  
-  //preprocess
-  PreProcess(image_sub);
-
-  //correlate //Run is the only function call correlate //In correlate, decide delta_xy
-  Point delta_xy;
-  double PSR=Correlate(image_sub,delta_xy);//use H_i-1
-  if(PSR<1)
+  if(abs(delta_xy.x)<w*InRangeParameter && abs(delta_xy.y)<h*InRangeParameter)
   {
-    std::cout<<"PSR is low :"<<PSR<<std::endl;
+    return true;
   }
-  
-  //update location
-  center.x+=delta_xy.x;
-  center.y+=delta_xy.y;
-  cout<<"delta_x= "<<delta_xy.x<<", "<<"delta_y= "<<delta_xy.y<<endl;
+  return false;
+}
 
+bool Mosse::Run(const Mat &frame)
+{
+  bool NearCenter=false;
+  double PSR=0;
+  int iteration=0;
+  while(1)
+  {
+    //get image_sub
+    Mat image_sub;
+    getRectSubPix(frame, size, center, image_sub); //image_sub is the output array
+    //preprocess
+    PreProcess(image_sub);
+    // imshow("img_sub",image_sub);
+
+    //correlate //Run is the only function call correlate //In correlate, decide delta_xy
+    Point delta_xy;
+    PSR=Correlate(image_sub,delta_xy);//use H_i-1
+
+    NearCenter=InRange(delta_xy);
+    if(NearCenter==false)
+    {
+       cout<<"Fast Tracking"<<endl;
+    }
+    //update location
+    center.x+=delta_xy.x;
+    center.y+=delta_xy.y;
+    if(NearCenter || iteration>MaxIteration)
+    {
+      break;
+    }
+    iteration++;
+  }
+
+  if(PSR<psrThre)
+  {
+     std::cout<<"PSR is low :"<<PSR<<std::endl;
+     return false;
+  }
+  else
+  {
+//    std::cout<<"PSR= "<<PSR<<std::endl;
+  }
 
 //update filter H_i
   //get image_sub
@@ -336,5 +376,6 @@ void Mosse::Run(const Mat &frame)
   A=A*(1-rate)+A_new*rate;
   B=B*(1-rate)+B_new*rate;
   UpdateFilter();
+  return true;
 }
 #endif
