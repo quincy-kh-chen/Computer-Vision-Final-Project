@@ -134,7 +134,7 @@ int main(int argc, char* argv[])
 
     if(ImageSequence)
     {
-        string pathToData("/Users/Hsin/Desktop/CVproject/TestVideo/MountainBike");
+        string pathToData("/Users/Hsin/Desktop/CVproject/TestVideo/MotorRolling");
         string pathToImg=pathToData+"/img/%04d.jpg";
         string pathToGroundTruth=pathToData+"/groundtruth_rect.txt";
         ReadGroundTruth(pathToGroundTruth, rect_template);

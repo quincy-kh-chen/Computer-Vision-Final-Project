@@ -23,9 +23,9 @@ class Mosse
 public:
   double eps=0.00001;
   double rate=0.125; //learning rate
-  double psrThre=6.0;
-  const double InRangeParameter=0.1;
-  int MaxIteration=3;
+  double psrThre=8.5;
+  const double InRangeParameter=0.08;
+  int MaxIteration=15;
   Point_<double> center; //center of the bounding box
   Size size; //size of the bounding box
   Mat previousWin;
@@ -63,7 +63,7 @@ public:
   Mat addComplexPlane(Mat real);
   bool InRange(const Point &delta_xy);  
   bool Run(const Mat &frame);
-  
+
 
 };
 Mosse::Mosse(void)
@@ -223,7 +223,7 @@ void Mosse::PreProcess(Mat &window)
   //normalize
   Mat mean,StdDev;
   meanStdDev(window,mean,StdDev);
-   window=(window-mean.at<double>(0)*Dia)/StdDev.at<double>(0);
+  window=(window-mean.at<double>(0))/(StdDev.at<double>(0)+eps);
 //  window=(window-mean)/(StdDev+eps);
   
   //Gaussain weighting
@@ -361,8 +361,9 @@ bool Mosse::Run(const Mat &frame)
 //update filter H_i
   //get image_sub
   Mat img_sub_new;
+  Mat window;
   getRectSubPix(frame, size, center, img_sub_new);
-  
+  window=img_sub_new;
   //preprocess
   PreProcess(img_sub_new);
 
@@ -373,9 +374,28 @@ bool Mosse::Run(const Mat &frame)
   dft(img_sub_new,F,DFT_COMPLEX_OUTPUT);
   mulSpectrums(G, F, A_new, 0, true );
   mulSpectrums(F, F, B_new, 0, true );
+
+  //rand_warp
+  // for(int i=0;i<5;i++)
+  // {
+  //   Mat window_warp=randWarp(window);
+  //   PreProcess(window_warp);
+
+  //   Mat WINDOW_WARP;
+  //   Mat A_i;
+  //   Mat B_i;
+  //   dft(window_warp,WINDOW_WARP,DFT_COMPLEX_OUTPUT);
+  //   mulSpectrums(G          , WINDOW_WARP, A_i, 0, true );
+  //   mulSpectrums(WINDOW_WARP, WINDOW_WARP, B_i, 0, true );
+  //   A_new+=A_i;
+  //   B_new+=B_i;
+  // }
+  //rand_warp
+
   A=A*(1-rate)+A_new*rate;
   B=B*(1-rate)+B_new*rate;
   UpdateFilter();
   return true;
+
 }
 #endif
