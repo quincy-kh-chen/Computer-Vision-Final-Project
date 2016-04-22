@@ -223,8 +223,8 @@ void Mosse::PreProcess(Mat &window)
   //normalize
   Mat mean,StdDev;
   meanStdDev(window,mean,StdDev);
-  // window=(window-mean.at<double>(0)*Dia)/StdDev.at<double>(0);
-  window=(window-mean)/(StdDev+eps);
+   window=(window-mean.at<double>(0)*Dia)/StdDev.at<double>(0);
+//  window=(window-mean)/(StdDev+eps);
   
   //Gaussain weighting
   window=window.mul(HanWin);

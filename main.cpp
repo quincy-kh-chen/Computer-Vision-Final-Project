@@ -8,9 +8,11 @@
 */
 #include <iostream>
 #include <stdio.h>
+
 #include <fstream>
 #include <sstream> 
 #include <string> 
+#include <algorithm>
 #include <opencv2/opencv.hpp>
 #include <opencv/highgui.h>
 #include <opencv/cv.h>
@@ -90,35 +92,52 @@ void ReadGroundTruth(const string pathToGroundTruth, Rect &rect_template)
     int y;
     int box_width;
     int box_height;
-
+    
+//    const char * c = pathToGroundTruth.c_str();
+//    FILE *fp = fopen(c, "r");
+//    fscanf(fp, "%d,%d,%d,%d \n", &x, &y, &box_width, &box_height);
+    
     string line;
     ifstream infile;
     infile.open(pathToGroundTruth);
     // while(!infile.eof) 
-    {
+
+
         std::getline(infile,line); // Saves the line in line
+        //remove comma
+        
+        std::string::size_type n = 0;
+        while ( ( n = line.find( ',', n ) ) != std::string::npos )
+        {
+            line.replace( n, 1, 1, ' ' );
+            n++;
+        }
+        //remove com
+    
         istringstream in(line); //make a stream for the line itself
+    
         int c = in.peek();  // peek character
         if(isdigit(c)|| c=='-')
         {
             in >> x >> y >> box_width >>box_height;
-            cout<<"x="<<x<<"y="<<y<<endl;
+
+            cout<<"x="<<x<<" y="<<y<<" w="<<box_width<<" h="<<box_height<<endl;
         }
-    }
+    
     rect_template = Rect(x, y, box_width, box_height);
     infile.close();
 }
 
 int main(int argc, char* argv[])
 {    
-    bool ImageSequence=0;
+    bool ImageSequence=1;
 
     if(ImageSequence)
     {
-        string pathToData("/Users/Hsin/Desktop/CVproject/TestVideo/Crossing");
+        string pathToData("/Users/Hsin/Desktop/CVproject/TestVideo/MountainBike");
         string pathToImg=pathToData+"/img/%04d.jpg";
         string pathToGroundTruth=pathToData+"/groundtruth_rect.txt";
-
+        ReadGroundTruth(pathToGroundTruth, rect_template);
         capture.open(pathToImg);
         if(!capture.isOpened())
         {
@@ -131,7 +150,7 @@ int main(int argc, char* argv[])
         capture.set(CV_CAP_PROP_FRAME_HEIGHT,FRAME_HEIGHT);//FRAME_HEIGHT = 480;
         capture.set(CV_CAP_PROP_FPS,2);
 
-        ReadGroundTruth(pathToGroundTruth, rect_template);
+//        ReadGroundTruth(pathToGroundTruth, rect_template);
         //store image to matrix //cameraFeed is a matrix
         capture.read(CameraFeed);
         cvtColor(CameraFeed,frame,CV_RGB2GRAY);
@@ -142,7 +161,7 @@ int main(int argc, char* argv[])
 
         imshow("Tracking",CameraFeed);//original pic
         select_flag=1;
-        waitKeyTime=100;
+        waitKeyTime=10;
     }
 
     else if(!ImageSequence)
@@ -180,7 +199,6 @@ int main(int argc, char* argv[])
         }
         clock_t begin_time = clock();
 
-        // capture.open(pathToData);
         capture.read(CameraFeed);
         cvtColor(CameraFeed,frame,CV_RGB2GRAY);
 
