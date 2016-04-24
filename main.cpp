@@ -89,10 +89,10 @@ string intToString(int number)
 void ReadGroundTruth(const string pathToGroundTruth, Rect &rect_template)
 {
     //Each row in the ground-truth files: (x, y, box-width, box-height).
-    int x;
-    int y;
-    int box_width;
-    int box_height;
+    int x=0;
+    int y=0;
+    int box_width=0;
+    int box_height=0;
     
 //    const char * c = pathToGroundTruth.c_str();
 //    FILE *fp = fopen(c, "r");
@@ -124,7 +124,7 @@ void ReadGroundTruth(const string pathToGroundTruth, Rect &rect_template)
         {
             in >> x >> y >> box_width >>box_height;
 
-            cout<<"x="<<x<<" y="<<y<<" w="<<box_width<<" h="<<box_height<<endl;
+            // cout<<"x="<<x<<" y="<<y<<" w="<<box_width<<" h="<<box_height<<endl;
         }
         Groundtruth.push_back(Rect(x, y, box_width, box_height));
     }
@@ -140,7 +140,7 @@ int main(int argc, char* argv[])
     if(ImageSequence)
     {
         string pathToData("/Users/Hsin/Desktop/CVproject/TestVideo");
-        string pathToVideo("/MotorRolling");
+        string pathToVideo("/Liquor");
         string pathToImg = pathToData+pathToVideo + "/img/%04d.jpg";
         string pathToGroundTruth = pathToData+pathToVideo + "/groundtruth_rect.txt";
 
@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
         //set height and width of capture frame
         capture.set(CV_CAP_PROP_FRAME_WIDTH,FRAME_WIDTH);//FRAME_WIDTH = 640;
         capture.set(CV_CAP_PROP_FRAME_HEIGHT,FRAME_HEIGHT);//FRAME_HEIGHT = 480;
-        capture.set(CV_CAP_PROP_FPS,2);
+        capture.set(CV_CAP_PROP_FPS,5);
 
 //        ReadGroundTruth(pathToGroundTruth, rect_template);
         //store image to matrix //cameraFeed is a matrix
@@ -179,7 +179,7 @@ int main(int argc, char* argv[])
 
         imshow("Tracking",CameraFeed);//original pic
         select_flag=1;
-        waitKeyTime=10;
+        waitKeyTime=5;
     }
 
     else if(!ImageSequence)
@@ -264,7 +264,7 @@ int main(int argc, char* argv[])
         
         if (ImageSequence)
         {
-           rectangle(CameraFeed,Groundtruth[NumerofFrame], CV_RGB(0,0,255), 3, 8, 0);
+           // rectangle(CameraFeed,Groundtruth[NumerofFrame], CV_RGB(0,0,255), 3, 8, 0);
         }
 
         imshow("Tracking",CameraFeed);

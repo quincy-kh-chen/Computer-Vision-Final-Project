@@ -22,9 +22,9 @@ class Mosse
 {
 public:
   double eps=0.00001;
-  double rate=0.125; //learning rate
-  double psrThre=6.0;
-  const double InRangeParameter=0.2;
+  double rate=0.2; //learning rate
+  double psrThre=5.7;
+  const double InRangeParameter=0.08;
   int MaxIteration=4;
   Point_<double> center; //center of the bounding box
   Size size; //size of the bounding box
@@ -361,6 +361,7 @@ bool Mosse::Run(const Mat &frame)
   bool NearCenter=false;
   double PSR=0;
   int iteration=0;
+  Point delta_xy;
   while(1)
   {
     //get image_sub
@@ -371,18 +372,14 @@ bool Mosse::Run(const Mat &frame)
     // imshow("img_sub",image_sub);
 
     //correlate //Run is the only function call correlate //In correlate, decide delta_xy
-    Point delta_xy;
     PSR=Correlate(image_sub,delta_xy);//use H_i-1
 
     NearCenter=InRange(delta_xy);
     if(NearCenter==false)
     {
-       cout<<"Fast Tracking"<<endl;
+       // cout<<"Fast Tracking"<<endl;
     }
-    //update location
-    center.x+=delta_xy.x;
-    center.y+=delta_xy.y;
-    if(NearCenter && iteration>MaxIteration)
+    if(NearCenter || iteration>MaxIteration)
     {
       break;
     }
@@ -398,6 +395,9 @@ bool Mosse::Run(const Mat &frame)
   {
 //    std::cout<<"PSR= "<<PSR<<std::endl;
   }
+  //update location
+  center.x+=delta_xy.x;
+  center.y+=delta_xy.y;
 
 
 //update filter H_i
@@ -418,7 +418,7 @@ bool Mosse::Run(const Mat &frame)
   mulSpectrums(F, F, B_new, 0, true );
 
   //rand_warp
-  // for(int i=0;i<15;i++)
+  // for(int i=0;i<3;i++)
   // {
   //   Mat window_warp=randWarp(window);
   //   PreProcess(window_warp);
