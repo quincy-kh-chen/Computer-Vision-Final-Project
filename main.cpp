@@ -25,7 +25,8 @@ using namespace cv;
 
 //Multiple objects tracking
 vector<Tracker> Trackers;
-
+//Ground truth Rect
+vector<Rect> Groundtruth;
 //for mouse motion
 Point point1, point2; // vertical points of the bounding box
 int drag = 0;
@@ -100,8 +101,10 @@ void ReadGroundTruth(const string pathToGroundTruth, Rect &rect_template)
     string line;
     ifstream infile;
     infile.open(pathToGroundTruth);
-    // while(!infile.eof) 
 
+    Groundtruth.clear();
+    while(!infile.eof()) 
+    {
 
         std::getline(infile,line); // Saves the line in line
         //remove comma
@@ -123,20 +126,24 @@ void ReadGroundTruth(const string pathToGroundTruth, Rect &rect_template)
 
             cout<<"x="<<x<<" y="<<y<<" w="<<box_width<<" h="<<box_height<<endl;
         }
-    
-    rect_template = Rect(x, y, box_width, box_height);
+        Groundtruth.push_back(Rect(x, y, box_width, box_height));
+    }
+    // rect_template = Rect(x, y, box_width, box_height);
+    rect_template=Groundtruth[0];
     infile.close();
 }
 
 int main(int argc, char* argv[])
 {
-    bool ImageSequence=0;
+    bool ImageSequence=1;
 
     if(ImageSequence)
     {
-        string pathToData("/Users/Hsin/Desktop/CVproject/TestVideo/MotorRolling");
-        string pathToImg=pathToData+"/img/%04d.jpg";
-        string pathToGroundTruth=pathToData+"/groundtruth_rect.txt";
+        string pathToData("/Users/Hsin/Desktop/CVproject/TestVideo");
+        string pathToVideo("/MotorRolling");
+        string pathToImg = pathToData+pathToVideo + "/img/%04d.jpg";
+        string pathToGroundTruth = pathToData+pathToVideo + "/groundtruth_rect.txt";
+
         ReadGroundTruth(pathToGroundTruth, rect_template);
         capture.open(pathToImg);
         if(!capture.isOpened())
@@ -153,7 +160,18 @@ int main(int argc, char* argv[])
 //        ReadGroundTruth(pathToGroundTruth, rect_template);
         //store image to matrix //cameraFeed is a matrix
         capture.read(CameraFeed);
-        cvtColor(CameraFeed,frame,CV_RGB2GRAY);
+    
+        if (CameraFeed.channels() == 3)
+        {
+            cvtColor(CameraFeed, frame, CV_RGB2GRAY);
+        
+        }
+        if (CameraFeed.channels() == 1)
+        {
+            frame = CameraFeed;
+            
+        }
+        // cvtColor(CameraFeed,frame,CV_RGB2GRAY);
         // rect_template = Rect(x, y, box_width, box_height);
 
         Tracker track_mosse(frame, rect_template);
@@ -189,7 +207,7 @@ int main(int argc, char* argv[])
 
 
     
-    
+ int NumerofFrame=1;
  Start: 
     while(1)
     {
@@ -200,7 +218,17 @@ int main(int argc, char* argv[])
         clock_t begin_time = clock();
 
         capture.read(CameraFeed);
-        cvtColor(CameraFeed,frame,CV_RGB2GRAY);
+        if (CameraFeed.channels() == 3)
+        {
+            cvtColor(CameraFeed, frame, CV_RGB2GRAY);
+            
+        }
+        if (CameraFeed.channels() == 1)
+        {
+            frame = CameraFeed;
+            
+        }
+        // cvtColor(CameraFeed,frame,CV_RGB2GRAY);
 
         if(frame.size().height==0)
         {
@@ -233,6 +261,12 @@ int main(int argc, char* argv[])
         }
        
         putText(CameraFeed,"fps: "+intToString(int(1000/ElapsedTime)),Point(FRAME_WIDTH-160,20),5,1,Scalar(255,0,0),1);
+        
+        if (ImageSequence)
+        {
+           rectangle(CameraFeed,Groundtruth[NumerofFrame], CV_RGB(0,0,255), 3, 8, 0);
+        }
+
         imshow("Tracking",CameraFeed);
 ////////////////////////////////////////////////////////////
         
@@ -253,7 +287,7 @@ int main(int argc, char* argv[])
         {
             break;
         }
-
+        NumerofFrame++;
     }
     
     return 0;

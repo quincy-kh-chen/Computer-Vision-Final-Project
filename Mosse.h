@@ -63,7 +63,7 @@ public:
   Mat addComplexPlane(Mat real);
   bool InRange(const Point &delta_xy);  
   bool Run(const Mat &frame);
-  // void MaskDesiredG(cv::Mat &,int u_x,int u_y,double sigma = 2, bool norm_energy = true);
+  void MaskDesiredG(cv::Mat &,int u_x,int u_y,double sigma = 2, bool norm_energy = true);
 
 };
 
