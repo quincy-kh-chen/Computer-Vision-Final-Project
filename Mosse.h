@@ -63,7 +63,7 @@ public:
   Mat addComplexPlane(Mat real);
   bool InRange(const Point &delta_xy);  
   bool Run(const Mat &frame);
-  void MaskDesiredG(cv::Mat &,int u_x,int u_y,double sigma = 2, bool norm_energy = true);
+  // void MaskDesiredG(cv::Mat &,int u_x,int u_y,double sigma = 2, bool norm_energy = true);
 
 };
 
@@ -220,29 +220,29 @@ void Mosse::DefineGoal(void)
   dft(g,G,DFT_COMPLEX_OUTPUT);
 }
 
-void Mosse::MaskDesiredG(Mat &output,int u_x,int u_y,double sigma, bool norm_energy)
-{//Create 2D Gaussian
+// void Mosse::MaskDesiredG(Mat &output,int u_x,int u_y,double sigma, bool norm_energy)
+// {//Create 2D Gaussian
 
-    sigma *= sigma;
+//     sigma *= sigma;
 
-    //Fill input matrix as 2D Gaussian
-    for(int i=0;i<output.rows;i++)
-    {
-        for(int j=0;j<output.cols;j++)
-        {
-            output.at<float>(i,j) = 255 * exp( (-(i-u_y)*(i-u_y) / (2*sigma)) +
-                                     (-(j-u_x)*(j-u_x) / (2*sigma)) );
-        }
-    }
+//     //Fill input matrix as 2D Gaussian
+//     for(int i=0;i<output.rows;i++)
+//     {
+//         for(int j=0;j<output.cols;j++)
+//         {
+//             output.at<float>(i,j) = 255 * exp( (-(i-u_y)*(i-u_y) / (2*sigma)) +
+//                                      (-(j-u_x)*(j-u_x) / (2*sigma)) );
+//         }
+//     }
 
-    if (norm_energy)    //If true, norm image energy so that it sum up to 1
-    {
-        Scalar sum_;
-        sum_ = sum(output);
-        output /= sum_.val[0];
-    }
+//     if (norm_energy)    //If true, norm image energy so that it sum up to 1
+//     {
+//         Scalar sum_;
+//         sum_ = sum(output);
+//         output /= sum_.val[0];
+//     }
 
-}
+// }
 
 void Mosse::PreProcess(Mat &window)
 {
