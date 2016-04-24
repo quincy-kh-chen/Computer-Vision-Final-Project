@@ -23,9 +23,9 @@ class Mosse
 public:
   double eps=0.00001;
   double rate=0.125; //learning rate
-  double psrThre=8.5;
-  const double InRangeParameter=0.08;
-  int MaxIteration=15;
+  double psrThre=6.0;
+  const double InRangeParameter=0.2;
+  int MaxIteration=4;
   Point_<double> center; //center of the bounding box
   Size size; //size of the bounding box
   Mat previousWin;
@@ -63,9 +63,11 @@ public:
   Mat addComplexPlane(Mat real);
   bool InRange(const Point &delta_xy);  
   bool Run(const Mat &frame);
-
+  void MaskDesiredG(cv::Mat &,int u_x,int u_y,double sigma = 2, bool norm_energy = true);
 
 };
+
+
 Mosse::Mosse(void)
 {
 }
@@ -203,6 +205,9 @@ Mat Mosse::divDFTs(const CvMat &src1, const CvMat &src2)
   Mat dst = cvarrToMat(dst1);
   return dst;
 } 
+
+
+//
 void Mosse::DefineGoal(void)
 {
   Mat g=Mat::zeros(size,CV_32F);
@@ -214,6 +219,31 @@ void Mosse::DefineGoal(void)
   // imshow("g",g);
   dft(g,G,DFT_COMPLEX_OUTPUT);
 }
+
+void Mosse::MaskDesiredG(Mat &output,int u_x,int u_y,double sigma, bool norm_energy)
+{//Create 2D Gaussian
+
+    sigma *= sigma;
+
+    //Fill input matrix as 2D Gaussian
+    for(int i=0;i<output.rows;i++)
+    {
+        for(int j=0;j<output.cols;j++)
+        {
+            output.at<float>(i,j) = 255 * exp( (-(i-u_y)*(i-u_y) / (2*sigma)) +
+                                     (-(j-u_x)*(j-u_x) / (2*sigma)) );
+        }
+    }
+
+    if (norm_energy)    //If true, norm image energy so that it sum up to 1
+    {
+        Scalar sum_;
+        sum_ = sum(output);
+        output /= sum_.val[0];
+    }
+
+}
+
 void Mosse::PreProcess(Mat &window)
 {
   window.convertTo(window,CV_32FC1);
@@ -243,6 +273,7 @@ double Mosse::Correlate(const Mat &image_sub,Point &delta_xy)
 
   //Performs the per-element multiplication of two Fourier spectrums
   //************************ This is where F*H  ************************
+  // mulSpectrums(IMAGE_SUB, H, RESPONSE, 0, true );
   mulSpectrums(IMAGE_SUB, H, RESPONSE, 0, true );
 
   //inverse FFT
@@ -271,6 +302,16 @@ double Mosse::Correlate(const Mat &image_sub,Point &delta_xy)
   auto std=Std.at<double>(0);
   PSR=(maxVal-mean)/(std+eps);
   // cout<<"PSR= "<<PSR<<endl;
+
+  //new G
+  // if(PSR>psrThre)
+  // {
+  //   cv::Mat new_output = cv::Mat::zeros(response.size(), CV_32F);
+  //   MaskDesiredG(new_output,maxLoc.x,maxLoc.y);
+  //   dft(new_output,G,DFT_COMPLEX_OUTPUT);
+  // }
+  //new G
+
   return PSR;
 }
 float Mosse::randNum(void)
@@ -341,7 +382,7 @@ bool Mosse::Run(const Mat &frame)
     //update location
     center.x+=delta_xy.x;
     center.y+=delta_xy.y;
-    if(NearCenter || iteration>MaxIteration)
+    if(NearCenter && iteration>MaxIteration)
     {
       break;
     }
@@ -357,6 +398,7 @@ bool Mosse::Run(const Mat &frame)
   {
 //    std::cout<<"PSR= "<<PSR<<std::endl;
   }
+
 
 //update filter H_i
   //get image_sub
@@ -376,7 +418,7 @@ bool Mosse::Run(const Mat &frame)
   mulSpectrums(F, F, B_new, 0, true );
 
   //rand_warp
-  // for(int i=0;i<5;i++)
+  // for(int i=0;i<15;i++)
   // {
   //   Mat window_warp=randWarp(window);
   //   PreProcess(window_warp);

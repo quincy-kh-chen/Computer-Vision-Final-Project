@@ -129,8 +129,8 @@ void ReadGroundTruth(const string pathToGroundTruth, Rect &rect_template)
 }
 
 int main(int argc, char* argv[])
-{    
-    bool ImageSequence=1;
+{
+    bool ImageSequence=0;
 
     if(ImageSequence)
     {
